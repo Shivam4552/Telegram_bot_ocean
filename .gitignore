@@ -1,5 +1,5 @@
-# Environment variables
-.env
+# Environment variables (temporarily allow .env for Railway deployment)
+# .env
 
 # Digital Ocean deployment files (exclude these)
 deploy.sh
