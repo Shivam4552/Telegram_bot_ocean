@@ -18,26 +18,31 @@ def check_requirements():
         return False
 
 def check_config():
-    if not Path('.env').exists():
-        print("❌ .env file not found")
-        print("Please copy .env.example to .env and configure it")
+    # Load environment variables directly (works on Railway)
+    import os
+    
+    bot_token = os.getenv('BOT_TOKEN')
+    admin_ids = os.getenv('ADMIN_IDS')
+    channel_id = os.getenv('CHANNEL_ID')
+    
+    print(f"🔍 Checking environment variables...")
+    print(f"BOT_TOKEN: {'✅ Set' if bot_token else '❌ Missing'}")
+    print(f"ADMIN_IDS: {'✅ Set' if admin_ids else '❌ Missing'}")
+    print(f"CHANNEL_ID: {'✅ Set' if channel_id else '❌ Missing'}")
+    
+    if not bot_token:
+        print("❌ BOT_TOKEN not set in environment variables")
         return False
     
-    from config import Config
-    
-    if not Config.BOT_TOKEN:
-        print("❌ BOT_TOKEN not set in .env file")
+    if not admin_ids:
+        print("❌ ADMIN_IDS not set in environment variables")
         return False
     
-    if not Config.ADMIN_IDS:
-        print("❌ ADMIN_IDS not set in .env file")
+    if not channel_id:
+        print("❌ CHANNEL_ID not set in environment variables")
         return False
     
-    if not Config.CHANNEL_ID:
-        print("❌ CHANNEL_ID not set in .env file")
-        return False
-    
-    print("✅ Configuration looks good")
+    print("✅ All environment variables configured")
     return True
 
 def main():
