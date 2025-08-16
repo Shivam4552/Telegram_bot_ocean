@@ -41,8 +41,8 @@ def check_config():
     return True
 
 def main():
-    print("🛡️ NEET Channel Moderation Bot")
-    print("=" * 40)
+    print("🛡️ NEET Channel Moderation Bot v2.0")
+    print("=" * 45)
     
     if not check_requirements():
         sys.exit(1)
