@@ -18,6 +18,13 @@ class ImageAnalyzer:
             "admin"
         ]
         
+        # Trusted educational keywords - if image has these, be more lenient
+        self.educational_keywords = [
+            "neet", "jee", "physics", "chemistry", "biology", "mathematics", 
+            "question", "answer", "solution", "ncert", "cbse", "study",
+            "exam", "preparation", "practice", "test", "mock", "sample"
+        ]
+        
         # Load competitor logo templates
         self.logo_templates = {}
         self._load_competitor_logos()
@@ -50,16 +57,30 @@ class ImageAnalyzer:
         
         logger.info(f"Loaded {len(self.logo_templates)} competitor logo templates")
     
-    def analyze_image(self, image_data: bytes) -> Dict[str, any]:
+    def analyze_image(self, image_data: bytes, caption: str = "") -> Dict[str, any]:
         try:
             image = Image.open(io.BytesIO(image_data))
             
-            # Only check for competitor logos - allow all educational images
-            has_competitor_logo = self._detect_competitor_logos(image)
+            # Check if this appears to be educational content
+            is_educational = self._is_educational_content(caption)
+            
+            # If no caption provided, assume it's educational (doubt/question image)
+            # This is common in NEET channels where students share question images without text
+            if not caption.strip():
+                is_educational = True
+                logger.info("No caption provided - assuming educational content")
+            
+            # If educational, be very lenient - only block obvious competitor logos
+            if is_educational:
+                has_competitor_logo = self._detect_competitor_logos_strict(image)
+            else:
+                # For non-educational images, use normal detection
+                has_competitor_logo = self._detect_competitor_logos(image)
             
             return {
                 "is_safe": not has_competitor_logo,
                 "has_competitor_logo": has_competitor_logo,
+                "is_educational": is_educational,
                 "width": image.width,
                 "height": image.height,
                 "reason": "competitor_logo" if has_competitor_logo else "safe"
@@ -158,8 +179,8 @@ class ImageAnalyzer:
                 result = cv2.matchTemplate(image_gray, resized_template, cv2.TM_CCOEFF_NORMED)
                 _, max_val, _, _ = cv2.minMaxLoc(result)
                 
-                # Threshold for logo detection (adjust as needed)
-                threshold = 0.6  # 60% similarity
+                # Threshold for logo detection (adjusted to reduce false positives)
+                threshold = 0.8  # 80% similarity to reduce false positives with educational content
                 
                 if max_val >= threshold:
                     logger.info(f"Logo {logo_name} detected with confidence: {max_val:.2f} at scale: {scale}")
@@ -169,4 +190,73 @@ class ImageAnalyzer:
             
         except Exception as e:
             logger.error(f"Error in template matching for {logo_name}: {e}")
+            return False
+    
+    def _is_educational_content(self, caption: str) -> bool:
+        """Check if image appears to be educational content"""
+        if not caption:
+            return False
+        
+        caption_lower = caption.lower()
+        return any(keyword in caption_lower for keyword in self.educational_keywords)
+    
+    def _detect_competitor_logos_strict(self, image: Image.Image) -> bool:
+        """Strict competitor logo detection for educational content - only flag obvious matches"""
+        try:
+            # Convert PIL image to OpenCV format
+            img_array = np.array(image.convert('RGB'))
+            img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+            img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+            
+            # Check against all loaded logo templates with stricter threshold
+            for logo_name, template in self.logo_templates.items():
+                if self._match_template_strict(img_gray, template, logo_name):
+                    logger.info(f"Detected competitor logo (strict): {logo_name}")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error in strict competitor logo detection: {e}")
+            return False
+    
+    def _match_template_strict(self, image_gray, template, logo_name: str) -> bool:
+        """Strict template matching for educational content - higher threshold"""
+        try:
+            template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+            template_h, template_w = template_gray.shape
+            
+            # If template is larger than image, skip
+            if template_h > image_gray.shape[0] or template_w > image_gray.shape[1]:
+                return False
+            
+            # Try fewer scales for stricter matching
+            scales = [0.8, 0.9, 1.0, 1.1, 1.2]
+            
+            for scale in scales:
+                # Resize template
+                new_w = int(template_w * scale)
+                new_h = int(template_h * scale)
+                
+                # Skip if resized template is too large
+                if new_h > image_gray.shape[0] or new_w > image_gray.shape[1]:
+                    continue
+                
+                resized_template = cv2.resize(template_gray, (new_w, new_h))
+                
+                # Perform template matching
+                result = cv2.matchTemplate(image_gray, resized_template, cv2.TM_CCOEFF_NORMED)
+                _, max_val, _, _ = cv2.minMaxLoc(result)
+                
+                # Very strict threshold for educational content
+                threshold = 0.9  # 90% similarity - only flag obvious competitor logos
+                
+                if max_val >= threshold:
+                    logger.info(f"Logo {logo_name} detected (strict) with confidence: {max_val:.2f} at scale: {scale}")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error in strict template matching for {logo_name}: {e}")
             return False

@@ -25,7 +25,7 @@ class Config:
         "bhenchod", "sisterfucker", "madarchod variations",
         "rakshas", "harami", "kameena", "badtameez"
         "chodu", "lavde", "bhosadi", "bhosadi ke", "bhosadi ki", "bhosadi ka",
-        "bhosadi wale", "bhosadi wale", "bhosadi wale",
+        "bhosadi wale", "bhosadi wale", "bhosadi wale", "bkl"
 
     ]
     

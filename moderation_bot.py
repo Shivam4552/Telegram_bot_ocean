@@ -203,7 +203,9 @@ The bot automatically:
             file = await context.bot.get_file(photo.file_id)
             file_data = await file.download_as_bytearray()
             
-            analysis = self.image_analyzer.analyze_image(bytes(file_data))
+            # Pass caption to analyzer for educational context detection
+            caption = message.caption if message.caption else ""
+            analysis = self.image_analyzer.analyze_image(bytes(file_data), caption)
             
             if not analysis["is_safe"]:
                 await self.handle_violation(message, analysis, "image", context)
@@ -224,7 +226,9 @@ The bot automatically:
                 file = await context.bot.get_file(document.file_id)
                 file_data = await file.download_as_bytearray()
                 
-                analysis = self.image_analyzer.analyze_image(bytes(file_data))
+                # Pass caption to analyzer for educational context detection
+                caption = message.caption if message.caption else ""
+                analysis = self.image_analyzer.analyze_image(bytes(file_data), caption)
                 
                 if not analysis["is_safe"]:
                     await self.handle_violation(message, analysis, "document", context)
@@ -325,20 +329,19 @@ Contact admins if you believe this was an error.
                 if "violations" in analysis:
                     for violation in analysis["violations"]:
                         v_type = violation.get("type", "unknown")
-                        words = violation.get("words", [])
                         
-                        if v_type == "vulgar_content" and words:
-                            violation_details.append(f"inappropriate word: '{', '.join(words)}'")
-                        elif v_type == "competitor_content" and words:
-                            violation_details.append(f"competitor name: '{', '.join(words)}'")
-                        elif v_type == "screenshot_threat" and words:
-                            violation_details.append(f"threatening content: '{', '.join(words)}'")
+                        if v_type == "vulgar_content":
+                            violation_details.append("inappropriate content")
+                        elif v_type == "competitor_content":
+                            violation_details.append("competitor name")
+                        elif v_type == "screenshot_threat":
+                            violation_details.append("threatening content")
                         elif v_type == "spam_pattern":
-                            violation_details.append("spam/promotional pattern detected")
+                            violation_details.append("spam/promotional pattern")
                         elif v_type == "commercial_spam":
-                            violation_details.append("commercial promotion detected")
+                            violation_details.append("commercial promotion")
                         elif v_type == "promotional_pattern":
-                            violation_details.append("promotional content detected")
+                            violation_details.append("promotional content")
                         else:
                             violation_details.append(v_type.replace("_", " "))
                 
