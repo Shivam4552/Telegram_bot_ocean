@@ -7,7 +7,7 @@ load_dotenv()
 class Config:
     BOT_TOKEN = os.getenv('BOT_TOKEN')
     ADMIN_IDS = [int(x) for x in os.getenv('ADMIN_IDS', '').split(',') if x.strip()]
-    CHANNEL_ID = int(os.getenv('CHANNEL_ID', '0'))
+    CHANNEL_IDS = [int(x) for x in os.getenv('CHANNEL_IDS', '').split(',') if x.strip()]
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     
     VULGAR_WORDS = [
