@@ -112,7 +112,7 @@ The bot automatically:
 🛡️ Content filtering: Active
 📸 Image analysis: Active
 👥 Admins: {len(Config.ADMIN_IDS)}
-📢 Channel IDs: {', '.join(map(str, Config.CHANNEL_IDS))}
+📢 Channel ID: {Config.CHANNEL_ID}
         """
         await update.message.reply_text(status_text, parse_mode=ParseMode.MARKDOWN)
     
@@ -648,14 +648,8 @@ Use `/trust <user_id>` to view individual scores
         # If context is provided, check if user is channel admin
         if context:
             try:
-                for channel_id in Config.CHANNEL_IDS:
-                    try:
-                        chat_member = await context.bot.get_chat_member(channel_id, user_id)
-                        if chat_member.status in ['creator', 'administrator']:
-                            return True
-                    except Exception:
-                        continue
-                return False
+                chat_member = await context.bot.get_chat_member(Config.CHANNEL_ID, user_id)
+                return chat_member.status in ['creator', 'administrator']
             except Exception as e:
                 logger.error(f"Error checking admin status for user {user_id}: {e}")
                 return False

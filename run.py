@@ -26,12 +26,12 @@ def check_config():
     
     bot_token = os.getenv('BOT_TOKEN')
     admin_ids = os.getenv('ADMIN_IDS')
-    channel_ids = os.getenv('CHANNEL_IDS')
+    channel_id = os.getenv('CHANNEL_ID')
     
     print(f"🔍 Checking environment variables...")
     print(f"BOT_TOKEN: {'✅ Set' if bot_token else '❌ Missing'}")
     print(f"ADMIN_IDS: {'✅ Set' if admin_ids else '❌ Missing'}")
-    print(f"CHANNEL_IDS: {'✅ Set' if channel_ids else '❌ Missing'}")
+    print(f"CHANNEL_ID: {'✅ Set' if channel_id else '❌ Missing'}")
     
     if not bot_token:
         print("❌ BOT_TOKEN not set in environment variables")
@@ -41,8 +41,8 @@ def check_config():
         print("❌ ADMIN_IDS not set in environment variables")
         return False
     
-    if not channel_ids:
-        print("❌ CHANNEL_IDS not set in environment variables")
+    if not channel_id:
+        print("❌ CHANNEL_ID not set in environment variables")
         return False
     
     print("✅ All environment variables configured")
