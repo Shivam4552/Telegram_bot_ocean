@@ -20,6 +20,9 @@ def check_requirements():
 def check_config():
     # Load environment variables directly (works on Railway)
     import os
+    from dotenv import load_dotenv
+    
+    load_dotenv()  # Load .env file
     
     bot_token = os.getenv('BOT_TOKEN')
     admin_ids = os.getenv('ADMIN_IDS')
