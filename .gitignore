@@ -1,9 +1,9 @@
-# Environment variables (temporarily allow .env for Railway deployment)
-# .env
+# Environment files (keep secrets safe)
+.env
 
-# Digital Ocean deployment files (exclude these)
-deploy.sh
-upload-to-server.sh
+# Digital Ocean deployment files (include these now)
+# deploy.sh
+# upload-to-server.sh
 
 # Python cache
 __pycache__/

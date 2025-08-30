@@ -1,11 +1,11 @@
-# Digital Ocean Deployment Guide
+# Digital Ocean Droplet Deployment Guide
 
 ## Prerequisites
 
 1. **Digital Ocean Account** with billing enabled
-2. **Docker** and **Docker Compose** installed on your droplet
-3. **Bot Token** from @BotFather
-4. **Admin IDs** and **Channel ID**
+2. **Bot Token** from @BotFather
+3. **Admin IDs** and **Channel ID**
+4. **SSH access** to your droplet
 
 ## Step-by-Step Deployment
 
@@ -17,53 +17,35 @@
    - **Size**: Basic plan, $6/month (1GB RAM, 1 vCPU)
    - **Datacenter**: Choose closest to your location
    - **Authentication**: SSH keys (recommended) or password
-   - **Hostname**: `neet-telegram-bot`
+   - **Hostname**: `telegram-bot-server`
 
-### 2. Connect to Your Droplet
+### 2. Upload Bot Files to Droplet
+
+From your local machine, run:
+
+```bash
+# Make upload script executable
+chmod +x upload-to-server.sh
+
+# Upload to droplet (replace with your droplet IP)
+./upload-to-server.sh YOUR_DROPLET_IP root
+# or for ubuntu user: ./upload-to-server.sh YOUR_DROPLET_IP ubuntu
+```
+
+### 3. SSH to Your Droplet and Run Setup
 
 ```bash
 # SSH to your droplet (replace IP with your droplet's IP)
 ssh root@your_droplet_ip
-```
 
-### 3. Install Docker and Docker Compose
-
-```bash
-# Update system
-apt update && apt upgrade -y
-
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-
-# Install Docker Compose
-apt install docker-compose -y
-
-# Enable Docker to start on boot
-systemctl enable docker
-systemctl start docker
-```
-
-### 4. Upload Bot Files
-
-**Option A: Direct Upload**
-```bash
-# Create directory
-mkdir -p /root/telegram_bot
-cd /root/telegram_bot
-
-# Upload files using scp from your local machine
-# scp -r /home/shivam/Desktop/telegram_bot/* root@your_droplet_ip:/root/telegram_bot/
-```
-
-**Option B: Git Repository**
-```bash
-# If you have the code in a git repository
-git clone your_repository_url
+# Navigate to bot directory
 cd telegram_bot
+
+# Run setup script (this installs Python, dependencies, and sets up the service)
+./setup_server.sh
 ```
 
-### 5. Configure Environment
+### 4. Configure Environment Variables
 
 ```bash
 # Copy and edit environment file
@@ -73,33 +55,35 @@ nano .env
 
 **Edit .env with your actual values:**
 ```env
-BOT_TOKEN=7543908745:AAH4k7_N_JnFtRB6BL0vPXF9q4_apnUzVFY
-ADMIN_IDS=1295934129
-CHANNEL_ID=-1002738733550
+BOT_TOKEN=your_actual_bot_token_here
+ADMIN_IDS=your_admin_user_ids_comma_separated
+CHANNEL_ID=your_channel_id_here
 LOG_LEVEL=INFO
 ```
 
-### 6. Deploy the Bot
+### 5. Start the Bot Service
 
 ```bash
-# Make deployment script executable
-chmod +x deploy.sh
+# Reload systemd and enable the service
+sudo systemctl daemon-reload
+sudo systemctl enable telegram-bot
+sudo systemctl start telegram-bot
 
-# Run deployment
-./deploy.sh
+# Check if bot is running
+sudo systemctl status telegram-bot
 ```
 
-### 7. Monitor the Bot
+### 6. Monitor the Bot
 
 ```bash
-# Check bot logs
-docker-compose logs -f
+# Check bot logs (live)
+sudo journalctl -u telegram-bot -f
 
-# Check bot status
-docker-compose ps
+# Check last 50 log entries
+sudo journalctl -u telegram-bot -n 50
 
-# Restart bot if needed
-docker-compose restart
+# Check service status
+sudo systemctl status telegram-bot
 ```
 
 ## Management Commands
@@ -107,42 +91,54 @@ docker-compose restart
 ### Start/Stop Bot
 ```bash
 # Start bot
-docker-compose up -d
+sudo systemctl start telegram-bot
 
 # Stop bot
-docker-compose down
+sudo systemctl stop telegram-bot
 
 # Restart bot
-docker-compose restart
+sudo systemctl restart telegram-bot
+
+# Enable auto-start on boot
+sudo systemctl enable telegram-bot
+
+# Disable auto-start on boot
+sudo systemctl disable telegram-bot
 ```
 
 ### View Logs
 ```bash
 # Live logs
-docker-compose logs -f
+sudo journalctl -u telegram-bot -f
 
 # Last 100 lines
-docker-compose logs --tail=100
+sudo journalctl -u telegram-bot -n 100
+
+# Logs from today
+sudo journalctl -u telegram-bot --since today
 ```
 
 ### Update Bot
 ```bash
-# Pull latest changes (if using git)
+# Navigate to bot directory
+cd /opt/telegram_bot
+
+# Update code (if using git)
 git pull
 
-# Rebuild and restart
-./deploy.sh
+# Restart service to apply changes
+sudo systemctl restart telegram-bot
 ```
 
 ## Troubleshooting
 
 ### Bot Not Starting
 ```bash
-# Check logs for errors
-docker-compose logs
+# Check service status
+sudo systemctl status telegram-bot
 
-# Check if container is running
-docker ps
+# Check logs for errors
+sudo journalctl -u telegram-bot -n 50
 
 # Check system resources
 free -h
@@ -156,44 +152,53 @@ df -h
    curl -s https://api.telegram.org/bot$BOT_TOKEN/getMe
    ```
 3. **Check if bot is admin** in your channel
+4. **Verify environment variables are loaded**:
+   ```bash
+   sudo systemctl show telegram-bot -p Environment
+   ```
 
 ### Performance Issues
 - **Upgrade droplet** if CPU/RAM usage is high
 - **Monitor logs** for error patterns
-- **Check Docker stats**: `docker stats`
+- **Check system resources**: `htop` or `top`
 
 ## Security Best Practices
 
 1. **Firewall Setup**:
    ```bash
-   ufw enable
-   ufw allow ssh
-   ufw allow 80
-   ufw allow 443
+   sudo ufw enable
+   sudo ufw allow ssh
+   sudo ufw allow 22/tcp
    ```
 
 2. **Regular Updates**:
    ```bash
-   apt update && apt upgrade -y
+   sudo apt update && sudo apt upgrade -y
    ```
 
 3. **Monitor Resource Usage**:
    ```bash
    htop
-   docker stats
+   free -h
+   df -h
+   ```
+
+4. **Secure Environment File**:
+   ```bash
+   chmod 600 .env
    ```
 
 ## Cost Estimation
 
-- **Basic Droplet**: $6/month (1GB RAM, 1 vCPU)
-- **Storage**: Included (25GB SSD)
+- **Basic Droplet**: $6/month (1GB RAM, 1 vCPU, 25GB SSD)
 - **Bandwidth**: 1TB included
-- **Total**: ~$6-8/month
+- **Total**: ~$6/month
 
 ## Support
 
 For issues:
-1. Check bot logs: `docker-compose logs`
+1. Check service logs: `sudo journalctl -u telegram-bot -f`
 2. Verify configuration in `.env`
 3. Test bot token: `curl -s https://api.telegram.org/bot$BOT_TOKEN/getMe`
 4. Ensure bot has admin rights in channel
+5. Check service status: `sudo systemctl status telegram-bot`
