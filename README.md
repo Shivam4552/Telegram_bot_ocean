@@ -48,8 +48,8 @@ Edit the `.env` file with your details:
 
 ```env
 BOT_TOKEN=your_telegram_bot_token_from_botfather
-ADMIN_IDS=123456789,987654321
-CHANNEL_ID=-1001234567890
+ADMIN_IDS=your admin id
+CHANNEL_ID=channel id
 LOG_LEVEL=INFO
 ```
 
