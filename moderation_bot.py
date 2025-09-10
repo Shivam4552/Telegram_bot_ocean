@@ -1049,63 +1049,113 @@ Use `/trust <user_id>` to view individual scores
     
     # Let's implement a different approach using message tracking
     async def get_recent_messages_for_deletion(self, chat_id: int, cutoff_time: datetime, context: ContextTypes.DEFAULT_TYPE):
-        """Get recent messages for deletion using a practical approach"""
+        """Get recent messages for deletion using timestamp-based approach"""
         try:
-            # Since direct chat history access is limited in Bot API,
-            # we'll use a hybrid approach:
-            # 1. Track messages as they come (for future implementation)
-            # 2. For now, use message ID iteration with error handling
-            
             deleted_messages = []
-            admin_skipped = []
+            admin_skipped = 0
             error_count = 0
             
-            # Get a reasonable message ID range by sending and deleting a temp message
+            # Get current message ID range
             temp_msg = await context.bot.send_message(
                 chat_id=chat_id,
-                text="🔄"
+                text="🔄 Scanning messages..."
             )
             current_msg_id = temp_msg.message_id
             await context.bot.delete_message(chat_id=chat_id, message_id=current_msg_id)
             
-            # Check recent messages (last 5000 message IDs)
-            for msg_id in range(current_msg_id - 1, max(0, current_msg_id - 5000), -1):
+            # We need to check messages going backwards from current time
+            # Since we can't get message timestamps directly, we'll use a time-estimation approach
+            # This is a limitation of Bot API - we can only estimate message age by ID gaps
+            
+            # Start from recent messages and work backwards
+            # Estimate: roughly 1 message per minute in active groups
+            # For 60 minutes, check last ~300-500 message IDs to be safe
+            current_time = datetime.now()
+            time_diff_minutes = (current_time - cutoff_time).total_seconds() / 60
+            estimated_range = min(5000, max(300, int(time_diff_minutes * 5)))
+            
+            consecutive_errors = 0
+            messages_found = 0
+            
+            for msg_id in range(current_msg_id - 1, max(0, current_msg_id - estimated_range), -1):
                 try:
-                    # Try to delete the message directly
-                    # If it exists and is deletable, this will work
-                    # If it's an admin message or doesn't exist, it will fail
-                    
-                    # First, try to get message info by attempting to forward it
-                    # This is a workaround to check if message exists and get sender info
-                    try:
-                        # We can't easily get message details without special permissions
-                        # So we'll try a direct deletion approach with error handling
+                    # Try to forward the message to ourselves to check if it exists and get info
+                    # This is the only way to get message details without admin privileges
+                    admin_ids = Config.ADMIN_IDS
+                    if admin_ids:
+                        admin_id = admin_ids[0]  # Use first admin for forwarding test
                         
-                        await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
-                        deleted_messages.append(msg_id)
-                        
-                        # Add delay every 20 deletions
-                        if len(deleted_messages) % 20 == 0:
-                            await asyncio.sleep(1)
+                        try:
+                            # Try to forward message to admin to check if it exists
+                            forwarded = await context.bot.forward_message(
+                                chat_id=admin_id,
+                                from_chat_id=chat_id,
+                                message_id=msg_id
+                            )
                             
-                    except Exception:
-                        # Message might not exist, be undeletable, or be from admin
-                        error_count += 1
-                        
-                        # If we get too many consecutive errors, we've probably
-                        # gone beyond the available message range
-                        if error_count > 100:
-                            break
+                            messages_found += 1
                             
+                            # Get the original message date from forward
+                            if forwarded and forwarded.forward_date:
+                                message_time = forwarded.forward_date
+                                
+                                # Convert to naive datetime for comparison
+                                if message_time.tzinfo:
+                                    message_time = message_time.replace(tzinfo=None)
+                                
+                                # Check if message is older than cutoff time
+                                if message_time < cutoff_time:
+                                    # Message is old enough to delete
+                                    try:
+                                        # Delete the original message
+                                        await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                                        deleted_messages.append(msg_id)
+                                        
+                                        # Add delay every 20 deletions
+                                        if len(deleted_messages) % 20 == 0:
+                                            await asyncio.sleep(1)
+                                            
+                                    except Exception:
+                                        # Couldn't delete - might be admin message or already deleted
+                                        admin_skipped += 1
+                                        pass
+                                else:
+                                    # Message is newer than cutoff - we can stop here
+                                    # since we're going backwards chronologically
+                                    logger.info(f"Reached newer messages at msg_id {msg_id}, stopping scan")
+                                    break
+                            
+                            # Clean up the forwarded message
+                            try:
+                                await context.bot.delete_message(chat_id=admin_id, message_id=forwarded.message_id)
+                            except:
+                                pass
+                                
+                            consecutive_errors = 0  # Reset error counter
+                            
+                        except Exception:
+                            # Message doesn't exist or can't be forwarded
+                            consecutive_errors += 1
+                            error_count += 1
+                            
+                            # If we get too many consecutive errors, stop scanning
+                            if consecutive_errors > 50:
+                                logger.info(f"Too many consecutive errors ({consecutive_errors}), stopping scan")
+                                break
+                                
                 except Exception as e:
                     logger.error(f"Error processing message {msg_id}: {e}")
+                    consecutive_errors += 1
                     error_count += 1
-                    if error_count > 100:
+                    
+                    if consecutive_errors > 50:
                         break
+            
+            logger.info(f"Deletion scan complete: found {messages_found} messages, deleted {len(deleted_messages)}, skipped {admin_skipped}")
             
             return {
                 "deleted_count": len(deleted_messages),
-                "admin_skipped": len(admin_skipped),
+                "admin_skipped": admin_skipped,
                 "error_count": error_count
             }
             
