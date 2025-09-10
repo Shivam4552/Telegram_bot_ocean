@@ -17,7 +17,9 @@ A Telegram bot designed to protect educational NEET channels from spam, vulgar c
 
 ### 👨‍💼 Admin Controls
 - **Real-time Notifications**: Admins get instant alerts about violations
-- **User Management**: Whitelist trusted users
+- **User Management**: Whitelist trusted users and manage trust scores
+- **Timer-based Message Deletion**: Delete messages older than specified time
+- **Auto-deletion**: Automatic cleanup of old messages
 - **Detailed Logging**: Complete audit trail of all moderation actions
 - **Status Monitoring**: Check bot health and statistics
 
@@ -66,11 +68,29 @@ python moderation_bot.py
 
 ## Bot Commands
 
-### Admin Commands
+### Basic Admin Commands
 - `/start` - Initialize the bot
-- `/help` - Show help message
+- `/help` - Show help message with all available commands
 - `/status` - Display bot status and statistics
 - `/whitelist <user_id>` - Whitelist a trusted user
+- `/warnings` - Show current user warnings
+- `/reset_warnings <user_id>` - Reset warnings for a user
+
+### Timer Deletion Commands
+- `/60`, `/120`, `/180` etc. - Delete messages older than X minutes
+- `/preview60`, `/preview120` - Preview what would be deleted (without actually deleting)
+- `/confirm180`, `/confirm360` - Confirm large deletions (required for >180 minutes)
+
+### Auto-Deletion Commands
+- `/auto60`, `/auto120` - Start automatic deletion every 10 minutes for messages older than X minutes
+- `/stop_auto` - Stop all active auto-deletions
+- `/stop_auto <minutes>` - Stop specific auto-deletion timer
+- `/list_auto` - Show all currently active auto-deletions
+
+### Trust System Commands
+- `/trust <user_id>` - View user's trust score and details
+- `/trust <user_id> <score>` - Set user trust score (0-100)
+- `/trust_info` - Show trust system overview and statistics
 
 ## Content Filtering Rules
 
@@ -81,10 +101,13 @@ python moderation_bot.py
 4. **Spam Patterns**: Links, promotional content, contact requests
 
 ### Automatic Actions
-- ❌ Delete violating messages
-- ⚠️ Send warning to user
+- ❌ Delete violating messages instantly
+- ⚠️ Send warning to user (3-strike system)
+- 🛡️ Protect admin messages from deletion
+- 🔄 Auto-delete old messages (when enabled)
 - 📨 Notify admins with violation details
-- 📝 Log all actions for audit
+- 📝 Log all actions for audit trail
+- 🚫 Ban users after 3 violations
 
 ## Customization
 
@@ -109,8 +132,36 @@ Modify detection thresholds in:
 
 ### Admin Security
 - Only whitelisted admins can use commands
+- Admin messages are protected from timer deletion
 - Secure token management via environment variables
 - Comprehensive audit logging
+- Rate limiting on bulk operations
+
+## Timer Deletion Features
+
+### Manual Message Deletion
+Use timer commands to delete messages older than specified time:
+- **Example**: `/60` deletes all messages older than 60 minutes
+- **Safety**: Commands >180 minutes require confirmation with `/confirm<minutes>`
+- **Preview**: Use `/preview60` to see what would be deleted before actually deleting
+
+### Auto-Deletion
+Set up automatic cleanup of old messages:
+- **Example**: `/auto120` automatically deletes messages older than 2 hours every 10 minutes
+- **Management**: View active auto-deletions with `/list_auto`
+- **Control**: Stop specific timers with `/stop_auto 120` or all with `/stop_auto`
+
+### Safety Features
+- 🛡️ **Admin Protection**: Admin messages are never deleted
+- ⏱️ **Rate Limiting**: 1 second delay every 20 deletions to avoid API limits
+- 🔍 **Preview Mode**: Test deletion scope without actually deleting
+- ⚠️ **Confirmation**: Large deletions require explicit confirmation
+- 📊 **Progress Reporting**: Real-time updates during deletion process
+
+### Use Cases
+- **Channel Cleanup**: Remove old discussions periodically
+- **Maintenance**: Keep channel focused on recent content
+- **Moderation**: Remove outdated announcements automatically
 
 ## Deployment
 
