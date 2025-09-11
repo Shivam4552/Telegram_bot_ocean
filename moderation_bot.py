@@ -27,6 +27,7 @@ class ModerationBot:
                            .read_timeout(60)
                            .pool_timeout(60)
                            .connection_pool_size(10)
+                           .post_init(self.start_background_tasks)
                            .build())
         self.user_warnings = {}  # Track warnings per user
         self.user_violations = {}  # Track detailed violation history
@@ -34,10 +35,8 @@ class ModerationBot:
         self.user_join_dates = {}  # Track when users joined
         self.auto_deletion_tasks = {}  # Track active auto-deletion tasks: {chat_id: {minutes: task}}
         self.message_history = {}  # Track message IDs and timestamps: {message_id: datetime}
+        self.cleanup_task = None  # Will be started when bot runs
         self.setup_handlers()
-        
-        # Start background cleanup task
-        asyncio.create_task(self.periodic_cleanup_task())
         
     def setup_handlers(self):
         self.application.add_handler(CommandHandler("start", self.start_command))
@@ -743,6 +742,11 @@ Use `/trust <user_id>` to view individual scores
             if msg_date < cutoff_time:
                 old_messages.append(msg_id)
         return old_messages
+    
+    async def start_background_tasks(self, application):
+        """Initialize background tasks after the application is ready"""
+        self.cleanup_task = asyncio.create_task(self.periodic_cleanup_task())
+        logger.info("Background cleanup task started")
     
     async def periodic_cleanup_task(self):
         """Background task to clean up old message history every hour"""
