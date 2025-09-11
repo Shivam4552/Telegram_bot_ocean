@@ -28,6 +28,7 @@ class ModerationBot:
                            .pool_timeout(60)
                            .connection_pool_size(10)
                            .post_init(self.start_background_tasks)
+                           .post_shutdown(self.cleanup_background_tasks)
                            .build())
         self.user_warnings = {}  # Track warnings per user
         self.user_violations = {}  # Track detailed violation history
@@ -748,15 +749,43 @@ Use `/trust <user_id>` to view individual scores
         self.cleanup_task = asyncio.create_task(self.periodic_cleanup_task())
         logger.info("Background cleanup task started")
     
+    async def cleanup_background_tasks(self, application):
+        """Clean up background tasks before shutdown"""
+        # Stop background cleanup task
+        if self.cleanup_task and not self.cleanup_task.done():
+            self.cleanup_task.cancel()
+            try:
+                await self.cleanup_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("Background cleanup task stopped")
+        
+        # Stop all auto-deletion tasks
+        for chat_id, chat_tasks in self.auto_deletion_tasks.items():
+            for minutes, task in chat_tasks.items():
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                    logger.info(f"Auto-deletion task stopped: {minutes}m for chat {chat_id}")
+        
+        self.auto_deletion_tasks.clear()
+        logger.info("All background tasks cleaned up")
+    
     async def periodic_cleanup_task(self):
         """Background task to clean up old message history every hour"""
-        while True:
-            try:
+        try:
+            while True:
                 await asyncio.sleep(3600)  # Wait 1 hour
                 self.cleanup_old_message_history()
-            except Exception as e:
-                logger.error(f"Error in periodic cleanup: {e}")
-                await asyncio.sleep(3600)  # Continue despite errors
+        except asyncio.CancelledError:
+            logger.info("Periodic cleanup task cancelled")
+            raise  # Re-raise to properly handle cancellation
+        except Exception as e:
+            logger.error(f"Error in periodic cleanup: {e}")
+            # Don't restart on unexpected errors during shutdown
     
     async def handle_timer_deletion(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle timer-based deletion commands like /60, /120"""
